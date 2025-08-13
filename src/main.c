@@ -12,7 +12,6 @@ int muted = 0;
 
 void toggle_mute()
 {
-    muted = !muted;
     pid_t pid = fork();
     if (pid == -1) {
         perror("failed to fork");
@@ -27,6 +26,8 @@ void toggle_mute()
             printf("Unmuting\n");
             execlp("wpctl", "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "0", NULL);
         }
+    } else {
+        muted = !muted;
     }
 }
 
@@ -128,18 +129,26 @@ int client(char msg)
     return 0;
 }
 
+void usage(char* name) {
+    printf("Usage: %s\ns - server/daemon\nc - client; t(toggle mute), q(exit)\n", name);
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 2) {
         if (strcmp(argv[1], "s") == 0) {
             server();
+        } else {
+            usage(argv[0]); 
         }
-    }
-
-    if (argc == 3) {
+    } else if (argc == 3) {
         if (strcmp(argv[1], "c") == 0) {
             client(argv[2][0]);
+        } else {
+            usage(argv[0]); 
         }
+    } else {
+        usage(argv[0]);
     }
 
     return 0;
