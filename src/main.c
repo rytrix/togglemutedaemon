@@ -4,11 +4,31 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include "../external/miniaudio.h"
 
 #define SOCKET_PATH "/tmp/togglemutedaemon"
 #define BUFFER_SIZE 1
 
 int muted = 0;
+
+ma_engine engine;
+
+int init_audio() {
+    ma_result result;
+    result = ma_engine_init(NULL, &engine);
+    if (result != MA_SUCCESS) {
+        return result;  // Failed to initialize the engine.
+    }
+    return 0;
+}
+
+void deinit_audio() {
+    ma_engine_uninit(&engine);
+}
+
+void play_sound(const char* filepath) {
+    ma_engine_play_sound(&engine, filepath, NULL);
+}
 
 void toggle_mute()
 {
@@ -27,6 +47,11 @@ void toggle_mute()
             execlp("wpctl", "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "0", NULL);
         }
     } else {
+        if (muted) {
+            play_sound("unmuted.mp3");
+        } else {
+            play_sound("muted.mp3");
+        }
         muted = !muted;
     }
 }
@@ -129,7 +154,8 @@ int client(char msg)
     return 0;
 }
 
-void usage(char* name) {
+void usage(char* name)
+{
     printf("Usage: %s\ns - server/daemon\nc - client; t(toggle mute), q(exit)\n", name);
 }
 
@@ -137,15 +163,17 @@ int main(int argc, char** argv)
 {
     if (argc == 2) {
         if (strcmp(argv[1], "s") == 0) {
+            init_audio();
             server();
+            deinit_audio();
         } else {
-            usage(argv[0]); 
+            usage(argv[0]);
         }
     } else if (argc == 3) {
         if (strcmp(argv[1], "c") == 0) {
             client(argv[2][0]);
         } else {
-            usage(argv[0]); 
+            usage(argv[0]);
         }
     } else {
         usage(argv[0]);
