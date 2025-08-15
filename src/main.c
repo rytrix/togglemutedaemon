@@ -21,7 +21,7 @@ int muted = 0;
 
 ma_engine engine;
 
-// Expects a char buffer of PATH_MAX
+// Expects a char buffer of PATH_MAX length
 char* executable_path(char* const buffer)
 {
     size_t len = readlink("/proc/self/exe", buffer, PATH_MAX - 1);
@@ -39,6 +39,7 @@ int init_audio()
     ma_result result;
     result = ma_engine_init(NULL, &engine);
     if (result != MA_SUCCESS) {
+        perror("Failed to start audio engine");
         return result; // Failed to initialize the engine.
     }
     return 0;
@@ -202,7 +203,10 @@ int main(int argc, char** argv)
 {
     if (argc == 2) {
         if (strcmp(argv[1], "s") == 0) {
-            init_audio();
+            int audio_result = init_audio();
+            if (audio_result != 0) {
+                return audio_result;
+            }
             server();
             deinit_audio();
         } else {
