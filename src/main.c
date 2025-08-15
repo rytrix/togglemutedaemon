@@ -1,36 +1,60 @@
+#include "../external/miniaudio.h"
+#include <libgen.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include "../external/miniaudio.h"
 
 #define SOCKET_PATH "/tmp/togglemutedaemon"
 #define BUFFER_SIZE 1
+
+#ifdef DEBUG
+#define printf_debug printf
+#else
+#define printf_debug //
+#endif
 
 int muted = 0;
 
 ma_engine engine;
 
-int init_audio() {
+// Expects a char buffer of PATH_MAX
+char* executable_path(char* const buffer)
+{
+    size_t len = readlink("/proc/self/exe", buffer, PATH_MAX - 1);
+    if (len == -1) {
+        perror("Readlink failed, unable to determine executable directory");
+        return buffer;
+    }
+
+    buffer[len] = '\0';
+    return dirname(buffer);
+}
+
+int init_audio()
+{
     ma_result result;
     result = ma_engine_init(NULL, &engine);
     if (result != MA_SUCCESS) {
-        return result;  // Failed to initialize the engine.
+        return result; // Failed to initialize the engine.
     }
     return 0;
 }
 
-void deinit_audio() {
+void deinit_audio()
+{
     ma_engine_uninit(&engine);
 }
 
-void play_sound(const char* filepath) {
+void play_sound(const char* filepath)
+{
     ma_engine_play_sound(&engine, filepath, NULL);
 }
 
-void toggle_mute()
+void toggle_mute(char* sound_dir)
 {
     pid_t pid = fork();
     if (pid == -1) {
@@ -40,17 +64,24 @@ void toggle_mute()
     if (pid == 0) {
         // wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1
         if (muted == 0) {
-            printf("Muting\n");
+            printf_debug("Muting\n");
             execlp("wpctl", "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1", NULL);
         } else {
-            printf("Unmuting\n");
+            printf_debug("Unmuting\n");
             execlp("wpctl", "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "0", NULL);
         }
     } else {
+        char sound_path[PATH_MAX + 12] = { 0 };
+        strcpy(sound_path, sound_dir);
+        int path_len = strlen(sound_path);
         if (muted) {
-            play_sound("unmuted.mp3");
+            strcpy(sound_path + path_len, "/unmuted.mp3\0");
+            printf_debug("Attempting to play sound: \"%s\"\n", sound_path);
+            play_sound(sound_path);
         } else {
-            play_sound("muted.mp3");
+            strcpy(sound_path + path_len, "/muted.mp3\0");
+            printf_debug("Attempting to play sound: \"%s\"\n", sound_path);
+            play_sound(sound_path);
         }
         muted = !muted;
     }
@@ -58,7 +89,15 @@ void toggle_mute()
 
 int server()
 {
+    char executable_path_buffer[PATH_MAX];
+    char* sounds_dir = executable_path(executable_path_buffer);
+    int path_len = strlen(sounds_dir);
+    const char* sounds = "/sounds\0";
+    strcpy(sounds_dir + path_len, sounds);
+    printf_debug("SERVER: Sound path: \"%s\"\n", sounds_dir);
+
     struct sockaddr_un server_addr;
+
     int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (server_fd == -1) {
         perror("SERVER: failed to create server socket");
@@ -86,7 +125,7 @@ int server()
     }
 
     while (1) {
-        printf("SERVER: Socket listening\n");
+        printf_debug("SERVER: Socket listening\n");
         struct sockaddr_un client_addr;
         int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, (socklen_t*)&len);
         if (client_fd == -1) {
@@ -96,8 +135,8 @@ int server()
             exit(EXIT_FAILURE);
         }
 
-        char buf[BUFFER_SIZE] = { 0 };
-        int byte_recv = recv(client_fd, buf, sizeof(buf), 0);
+        char buf[BUFFER_SIZE + 1] = { 0 };
+        int byte_recv = recv(client_fd, buf, BUFFER_SIZE, 0);
         if (byte_recv == -1) {
             perror("SERVER: Failed to recv");
             close(server_fd);
@@ -105,11 +144,11 @@ int server()
             exit(EXIT_FAILURE);
         }
 
-        printf("received this \"%s\"\n", buf);
+        printf_debug("SERVER: received \"%s\"\n", buf);
         close(client_fd);
 
         if (buf[0] == 't') {
-            toggle_mute();
+            toggle_mute(sounds_dir);
         }
 
         if (buf[0] == 'q') {
@@ -143,12 +182,12 @@ int client(char msg)
         close(client_fd);
         exit(EXIT_FAILURE);
     }
-    printf("Client connected to server.\n");
+    printf_debug("Client connected to server.\n");
 
     if (write(client_fd, &msg, sizeof(msg)) == -1) {
         perror("client: write");
     }
-    printf("Client sent: '%c'\n", msg);
+    printf_debug("Client sent: '%c'\n", msg);
 
     close(client_fd);
     return 0;
