@@ -166,7 +166,7 @@ cleanup:
 int client(char msg)
 {
     int client_fd;
-    struct sockaddr_un server_addr;
+    struct sockaddr_un server_addr = { 0 };
 
     client_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (client_fd == -1) {
@@ -174,7 +174,6 @@ int client(char msg)
         exit(EXIT_FAILURE);
     }
 
-    memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sun_family = AF_UNIX;
     strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
 
