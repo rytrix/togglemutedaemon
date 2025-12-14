@@ -55,8 +55,13 @@ void play_sound(const char* filepath)
     ma_engine_play_sound(&engine, filepath, NULL);
 }
 
-void toggle_mute(char* sound_dir)
+void set_mute(int toggle, int playsound, char* sound_dir)
 {
+    if (muted == toggle) {
+        return;
+    }
+    muted = toggle;
+
     pid_t pid = fork();
     if (pid == -1) {
         perror("failed to fork");
@@ -72,20 +77,26 @@ void toggle_mute(char* sound_dir)
             execlp("wpctl", "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "0", NULL);
         }
     } else {
-        char sound_path[PATH_MAX + 12] = { 0 };
-        strcpy(sound_path, sound_dir);
-        int path_len = strlen(sound_path);
-        if (muted) {
-            strcpy(sound_path + path_len, "/unmuted.mp3\0");
-            printf_debug("Attempting to play sound: \"%s\"\n", sound_path);
-            play_sound(sound_path);
-        } else {
-            strcpy(sound_path + path_len, "/muted.mp3\0");
-            printf_debug("Attempting to play sound: \"%s\"\n", sound_path);
-            play_sound(sound_path);
+        if (playsound) {
+            char sound_path[PATH_MAX + 12] = { 0 };
+            strcpy(sound_path, sound_dir);
+            int path_len = strlen(sound_path);
+            if (muted == 0) {
+                strcpy(sound_path + path_len, "/muted.mp3\0");
+                printf_debug("Attempting to play sound: \"%s\"\n", sound_path);
+                play_sound(sound_path);
+            } else {
+                strcpy(sound_path + path_len, "/unmuted.mp3\0");
+                printf_debug("Attempting to play sound: \"%s\"\n", sound_path);
+                play_sound(sound_path);
+            }
         }
-        muted = !muted;
     }
+}
+
+void toggle_mute(char* sound_dir)
+{
+    set_mute(!muted, 1, sound_dir);
 }
 
 int server()
@@ -150,6 +161,14 @@ int server()
 
         if (buf[0] == 't') {
             toggle_mute(sounds_dir);
+        }
+
+        if (buf[0] == '0') {
+            set_mute(0, 0, sounds_dir);
+        }
+
+        if (buf[0] == '1') {
+            set_mute(1, 0, sounds_dir);
         }
 
         if (buf[0] == 'q') {
