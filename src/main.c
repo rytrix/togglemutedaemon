@@ -57,9 +57,6 @@ void play_sound(const char* filepath)
 
 void set_mute(int toggle, int playsound, char* sound_dir)
 {
-    if (muted == toggle) {
-        return;
-    }
     muted = toggle;
 
     pid_t pid = fork();
