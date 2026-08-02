@@ -96,6 +96,49 @@ void toggle_mute(char* sound_dir)
     set_mute(!muted, 1, sound_dir);
 }
 
+int parse_mute()
+{
+    int pipe_fd[2];
+    if (pipe(pipe_fd) == -1) {
+        perror("pipe failed");
+        return -1;
+    }
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("failed to fork");
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0) {
+        close(pipe_fd[0]);
+        
+        if (dup2(pipe_fd[1], STDOUT_FILENO) == -1) {
+            perror("dup2 failed");
+            exit(EXIT_FAILURE);
+        }
+        close(pipe_fd[1]);
+
+        execlp("wpctl", "wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@", NULL);
+        perror("execlp failed");
+        exit(EXIT_FAILURE);
+    } else {
+
+        close(pipe_fd[1]);
+
+        char buffer[128] = {0};
+        size_t bytes_read = read(pipe_fd[0], buffer, sizeof(buffer) -1);
+        close(pipe_fd[0]);
+
+        if (bytes_read <= 0) {
+            return -1;
+        }
+
+        return (strstr(buffer, "[MUTED]") != NULL) ? 0 : 1;
+    }
+}
+
 int server()
 {
     char executable_path_buffer[PATH_MAX];
@@ -104,6 +147,8 @@ int server()
     const char* sounds = "/sounds\0";
     strcpy(sounds_dir + path_len, sounds);
     printf_debug("SERVER: Sound path: \"%s\"\n", sounds_dir);
+
+    muted = parse_mute();
 
     struct sockaddr_un server_addr;
 
