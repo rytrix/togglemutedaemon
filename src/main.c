@@ -1,11 +1,13 @@
 #include "../external/miniaudio.h"
 #include <libgen.h>
 #include <linux/limits.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #define SOCKET_PATH "/tmp/togglemutedaemon"
@@ -18,6 +20,9 @@
 #endif
 
 int muted = 0;
+atomic_size_t prev_ptt_ms = 0;
+atomic_int ptt_worker_continue = 1;
+pthread_mutex_t toggle_mute_lock;
 
 ma_engine engine;
 
@@ -66,7 +71,7 @@ void set_mute(int toggle, int playsound, char* sound_dir)
     }
     if (pid == 0) {
         // wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1
-        if (muted == 0) {
+        if (muted == 1) {
             printf_debug("Muting\n");
             execlp("wpctl", "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1", NULL);
         } else {
@@ -78,7 +83,7 @@ void set_mute(int toggle, int playsound, char* sound_dir)
             char sound_path[PATH_MAX + 12] = { 0 };
             strcpy(sound_path, sound_dir);
             int path_len = strlen(sound_path);
-            if (muted == 0) {
+            if (muted == 1) {
                 strcpy(sound_path + path_len, "/muted.mp3\0");
                 printf_debug("Attempting to play sound: \"%s\"\n", sound_path);
                 play_sound(sound_path);
@@ -91,9 +96,9 @@ void set_mute(int toggle, int playsound, char* sound_dir)
     }
 }
 
-void toggle_mute(char* sound_dir)
+void toggle_mute(int play_sound, char* sound_dir)
 {
-    set_mute(!muted, 1, sound_dir);
+    set_mute(!muted, play_sound, sound_dir);
 }
 
 int parse_mute()
@@ -113,7 +118,7 @@ int parse_mute()
     }
     if (pid == 0) {
         close(pipe_fd[0]);
-        
+
         if (dup2(pipe_fd[1], STDOUT_FILENO) == -1) {
             perror("dup2 failed");
             exit(EXIT_FAILURE);
@@ -127,8 +132,8 @@ int parse_mute()
 
         close(pipe_fd[1]);
 
-        char buffer[128] = {0};
-        size_t bytes_read = read(pipe_fd[0], buffer, sizeof(buffer) -1);
+        char buffer[128] = { 0 };
+        size_t bytes_read = read(pipe_fd[0], buffer, sizeof(buffer) - 1);
         close(pipe_fd[0]);
 
         if (bytes_read <= 0) {
@@ -139,7 +144,45 @@ int parse_mute()
     }
 }
 
-int server()
+size_t get_time_ms()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    return (size_t)(ts.tv_sec * 1000) + (size_t)(ts.tv_nsec / 1000000);
+}
+
+void sleep_ms(size_t milliseconds) {
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000L;
+    nanosleep(&ts, NULL);
+}
+
+struct PttArgs {
+    int play_sound;
+    char* sounds_dir;
+};
+typedef struct PttArgs PttArgs_t;
+
+void* ptt_tracker(void* pthread_args)
+{
+    PttArgs_t* args = (PttArgs_t*)pthread_args;
+    while (ptt_worker_continue) {
+        sleep_ms(50);
+        size_t current_time = get_time_ms();
+
+        pthread_mutex_lock(&toggle_mute_lock);
+        if (muted == 0 && current_time - prev_ptt_ms >= 500) {
+            set_mute(1, args->play_sound, args->sounds_dir);
+        }
+        pthread_mutex_unlock(&toggle_mute_lock);
+    }
+
+    return NULL;
+}
+
+int server(int ptt, int play_sound)
 {
     char executable_path_buffer[PATH_MAX];
     char* sounds_dir = executable_path(executable_path_buffer);
@@ -149,6 +192,9 @@ int server()
     printf_debug("SERVER: Sound path: \"%s\"\n", sounds_dir);
 
     muted = parse_mute();
+    if (ptt && muted) {
+        set_mute(1, play_sound, sounds_dir);
+    }
 
     struct sockaddr_un server_addr;
 
@@ -178,6 +224,18 @@ int server()
         exit(EXIT_FAILURE);
     }
 
+    pthread_t ptt_thread;
+    PttArgs_t ptt_args;
+    if (ptt) {
+        ptt_args.play_sound = play_sound;
+        ptt_args.sounds_dir = sounds_dir;
+        if (pthread_mutex_init(&toggle_mute_lock, NULL) != 0) {
+            perror("SERVER: failed to initialize ptt mutex");
+            exit(EXIT_FAILURE);
+        }
+        pthread_create(&ptt_thread, NULL, ptt_tracker, &ptt_args);
+    }
+
     while (1) {
         printf_debug("SERVER: Socket listening\n");
         struct sockaddr_un client_addr;
@@ -202,15 +260,27 @@ int server()
         close(client_fd);
 
         if (buf[0] == 't') {
-            toggle_mute(sounds_dir);
+            if (!ptt) {
+                toggle_mute(play_sound, sounds_dir);
+            } else {
+                pthread_mutex_lock(&toggle_mute_lock);
+                // Default it is muted
+                // Pressing ptt unmutes
+                if (muted == 1) {
+                    set_mute(0, play_sound, sounds_dir);
+                }
+                // Repeat presses reset prev_ptt_ms
+                prev_ptt_ms = get_time_ms();
+                pthread_mutex_unlock(&toggle_mute_lock);
+            }
         }
 
         if (buf[0] == '0') {
-            set_mute(0, 0, sounds_dir);
+            set_mute(0, play_sound, sounds_dir);
         }
 
         if (buf[0] == '1') {
-            set_mute(1, 0, sounds_dir);
+            set_mute(1, play_sound, sounds_dir);
         }
 
         if (buf[0] == 'q') {
@@ -221,6 +291,11 @@ int server()
 cleanup:
     close(server_fd);
     unlink(SOCKET_PATH);
+    if (ptt) {
+        ptt_worker_continue = 0;
+        pthread_join(ptt_thread, NULL);
+    }
+    pthread_mutex_destroy(&toggle_mute_lock);
     return 0;
 }
 
@@ -260,25 +335,96 @@ void usage(char* name)
     printf("Usage: %s\ns - server/daemon\nc - client; t(toggle mute), q(exit)\n", name);
 }
 
+enum ArgValues {
+    ARG_NOT_PRESENT = 0,
+    ARG_PRESENT = 1,
+};
+typedef enum ArgValues ArgValues_t;
+
+struct Args {
+    enum ArgValues server;
+    enum ArgValues client;
+    enum ArgValues audio;
+    enum ArgValues push_to_talk;
+    const char* message;
+};
+typedef struct Args Args_t;
+
+Args_t args_default()
+{
+    Args_t args;
+    args.server = ARG_NOT_PRESENT;
+    args.client = ARG_NOT_PRESENT;
+    args.audio = ARG_NOT_PRESENT;
+    args.push_to_talk = ARG_NOT_PRESENT;
+    args.message = NULL;
+    return args;
+}
+
+Args_t parse_args(int argc, char** argv)
+{
+    Args_t args = args_default();
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "s") == 0) {
+            args.server = ARG_PRESENT;
+        }
+        if (strcmp(argv[i], "c") == 0) {
+            args.client = ARG_PRESENT;
+        }
+        if (strcmp(argv[i], "p") == 0) {
+            args.push_to_talk = ARG_PRESENT;
+        }
+        if (strcmp(argv[i], "a") == 0) {
+            args.audio = ARG_PRESENT;
+        }
+        if (strcmp(argv[i], "t") == 0) {
+            if (args.message != NULL) {
+                printf_debug("Warning: message \"%s\" already present, overwriting with \"%s\"\n", args.message, argv[i]);
+            }
+            args.message = argv[i];
+        }
+        if (strcmp(argv[i], "0") == 0) {
+            if (args.message != NULL) {
+                printf_debug("Warning: message \"%s\" already present, overwriting with \"%s\"\n", args.message, argv[i]);
+            }
+            args.message = argv[i];
+        }
+        if (strcmp(argv[i], "1") == 0) {
+            if (args.message != NULL) {
+                printf_debug("Warning: message \"%s\" already present, overwriting with \"%s\"\n", args.message, argv[i]);
+            }
+            args.message = argv[i];
+        }
+    }
+
+    return args;
+}
+
 int main(int argc, char** argv)
 {
-    if (argc == 2) {
-        if (strcmp(argv[1], "s") == 0) {
+    Args_t args = parse_args(argc, argv);
+    if (args.server == ARG_PRESENT) {
+        int audio = 0;
+        int ptt = 0;
+        if (args.audio == ARG_PRESENT) {
+            audio = 1;
             int audio_result = init_audio();
             if (audio_result != 0) {
                 return audio_result;
             }
-            server();
+        }
+        if (args.push_to_talk) {
+            ptt = 1;
+        }
+        server(ptt, audio);
+        if (audio) {
             deinit_audio();
-        } else {
+        }
+    } else if (args.client == ARG_PRESENT) {
+        if (args.message == NULL) {
             usage(argv[0]);
         }
-    } else if (argc == 3) {
-        if (strcmp(argv[1], "c") == 0) {
-            client(argv[2][0]);
-        } else {
-            usage(argv[0]);
-        }
+        client(*args.message);
     } else {
         usage(argv[0]);
     }
