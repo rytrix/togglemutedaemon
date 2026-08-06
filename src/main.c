@@ -294,8 +294,8 @@ cleanup:
     if (ptt) {
         ptt_worker_continue = 0;
         pthread_join(ptt_thread, NULL);
+        pthread_mutex_destroy(&toggle_mute_lock);
     }
-    pthread_mutex_destroy(&toggle_mute_lock);
     return 0;
 }
 

@@ -6,7 +6,7 @@ OUT_FILE = togglemutedaemon
 INSTALL_DIR = ~/.local/bin
 
 $(OUT_DIR)/$(OUT_FILE): $(OUT_DIR) $(OUT_DIR)/sounds $(OUT_DIR)/main.o $(OUT_DIR)/miniaudio.o
-	$(CC) $(OUT_DIR)/main.o $(OUT_DIR)/miniaudio.o -o $(OUT_DIR)/$(OUT_FILE) -lm $(OPTIMIZE)
+	$(CC) $(OUT_DIR)/main.o $(OUT_DIR)/miniaudio.o -o $(OUT_DIR)/$(OUT_FILE) -lm -latomic -lpthread $(OPTIMIZE)
 
 $(OUT_DIR)/main.o: src/main.c
 	$(CC) src/main.c -o $(OUT_DIR)/main.o -c $(DEFINES) $(OPTIMIZE)
