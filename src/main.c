@@ -332,7 +332,7 @@ int client(char msg)
 
 void usage(char* name)
 {
-    printf("Usage: %s\ns - server/daemon\nc - client; t(toggle mute), q(exit)\n", name);
+    printf("Usage: %s\ns - server/daemon; a(audio), p(push to talk)\nc - client; t(toggle mute), 0(unmute), 1(mute) q(exit)\n", name);
 }
 
 enum ArgValues {
