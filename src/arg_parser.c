@@ -2,12 +2,12 @@
 
 #include "debug.h"
 
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 void usage(char* name)
 {
-    printf("Usage: %s\ns - server/daemon; a(audio), p(push to talk)\nc - client; t(toggle mute), 0(unmute), 1(mute) q(exit)\ng - global push to talk\n", name);
+    printf("Usage: %s\ns - server/daemon; a(audio), p(push to talk)\nc - client; t(toggle mute), 0(unmute), 1(mute) q(exit)\ng - global push to talk (requires root)\n", name);
 }
 
 Args_t args_default()
@@ -63,4 +63,3 @@ Args_t parse_args(int argc, char** argv)
 
     return args;
 }
-
