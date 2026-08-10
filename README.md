@@ -10,5 +10,7 @@ Supports global push to talk using /dev/input/eventX interface. (Requires root p
 
 ### Usage
 s - server/daemon; a(audio), p(push to talk)
+
 c - client; t(toggle mute), 0(unmute), 1(mute) q(exit)
+
 g - global push to talk (requires root)
