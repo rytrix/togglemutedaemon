@@ -1,11 +1,12 @@
 #include "server.h"
 
+#include "debug.h"
 #include "globals.h"
 #include "helpers.h"
-#include "debug.h"
 
 #include <libgen.h>
 #include <linux/limits.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +15,25 @@
 #include <time.h>
 #include <unistd.h>
 
-void set_mute(struct ServerContext* context, enum MicStatus status, int playsound, char* sound_dir)
+#include "../external/miniaudio.h"
+
+enum MicStatus {
+    STATUS_MUTED = 0,
+    STATUS_UNMUTED = 1,
+};
+typedef enum MicStatus MicStatus_t;
+
+struct ServerContext {
+    MicStatus_t mic_status;
+    atomic_size_t prev_ptt_ms;
+    atomic_int ptt_worker_continue;
+    pthread_mutex_t mutex;
+
+    ma_engine engine;
+};
+typedef struct ServerContext ServerContext_t;
+
+void set_mic_status(ServerContext_t* context, MicStatus_t status, int playsound, char* sound_dir)
 {
     context->mic_status = status;
 
@@ -50,12 +69,12 @@ void set_mute(struct ServerContext* context, enum MicStatus status, int playsoun
     }
 }
 
-void toggle_mute(struct ServerContext* context, int play_sound, char* sound_dir)
+void toggle_mic_status(ServerContext_t* context, int play_sound, char* sound_dir)
 {
-    set_mute(context, !context->mic_status, play_sound, sound_dir);
+    set_mic_status(context, !context->mic_status, play_sound, sound_dir);
 }
 
-enum MicStatus parse_mute()
+MicStatus_t parse_mic_status()
 {
     int pipe_fd[2];
     if (pipe(pipe_fd) == -1) {
@@ -114,7 +133,7 @@ void* ptt_tracker(void* pthread_args)
 
         pthread_mutex_lock(&args->context->mutex);
         if (args->context->mic_status == STATUS_UNMUTED && current_time - args->context->prev_ptt_ms >= 500) {
-            set_mute(args->context, 0, args->play_sound, args->sounds_dir);
+            set_mic_status(args->context, 0, args->play_sound, args->sounds_dir);
         }
         pthread_mutex_unlock(&args->context->mutex);
     }
@@ -131,14 +150,14 @@ int server(int ptt, int play_sound)
     strcpy(sounds_dir + path_len, sounds);
     printf_debug("SERVER: Sound path: \"%s\"\n", sounds_dir);
 
-    struct ServerContext context;
+    ServerContext_t context;
     context.mic_status = STATUS_MUTED;
     context.prev_ptt_ms = (size_t)-1;
     context.ptt_worker_continue = 1;
 
-    context.mic_status = parse_mute();
+    context.mic_status = parse_mic_status();
     if (ptt && context.mic_status == STATUS_MUTED) {
-        set_mute(&context, 0, play_sound, sounds_dir);
+        set_mic_status(&context, 0, play_sound, sounds_dir);
     }
 
     int audio_result = init_audio(&context.engine);
@@ -212,13 +231,13 @@ int server(int ptt, int play_sound)
 
         if (buf[0] == 't') {
             if (!ptt) {
-                toggle_mute(&context, play_sound, sounds_dir);
+                toggle_mic_status(&context, play_sound, sounds_dir);
             } else {
                 pthread_mutex_lock(&context.mutex);
                 // Default it is muted
                 // Pressing ptt unmutes
                 if (context.mic_status == STATUS_MUTED) {
-                    set_mute(&context, 1, play_sound, sounds_dir);
+                    set_mic_status(&context, 1, play_sound, sounds_dir);
                 }
                 // Repeat presses reset prev_ptt_ms
                 context.prev_ptt_ms = get_time_ms();
@@ -227,11 +246,11 @@ int server(int ptt, int play_sound)
         }
 
         if (buf[0] == '0') {
-            set_mute(&context, STATUS_MUTED, play_sound, sounds_dir);
+            set_mic_status(&context, STATUS_MUTED, play_sound, sounds_dir);
         }
 
         if (buf[0] == '1') {
-            set_mute(&context, STATUS_UNMUTED, play_sound, sounds_dir);
+            set_mic_status(&context, STATUS_UNMUTED, play_sound, sounds_dir);
         }
 
         if (buf[0] == 'q') {
@@ -250,4 +269,3 @@ cleanup:
     deinit_audio(&context.engine);
     return 0;
 }
-

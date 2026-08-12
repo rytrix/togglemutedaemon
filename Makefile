@@ -5,7 +5,7 @@ OPTIMIZE = -O2
 OUT_FILE = togglemutedaemon 
 INSTALL_DIR = ~/.local/bin
 
-OUT_OBJECTS = $(OUT_DIR)/main.o $(OUT_DIR)/miniaudio.o $(OUT_DIR)/watch_key.o $(OUT_DIR)/server.o $(OUT_DIR)/client.o $(OUT_DIR)/helpers.o $(OUT_DIR)/arg_parser.o
+OUT_OBJECTS = $(OUT_DIR)/main.o $(OUT_DIR)/miniaudio.o $(OUT_DIR)/watch_key.o $(OUT_DIR)/server.o $(OUT_DIR)/client.o $(OUT_DIR)/helpers.o $(OUT_DIR)/arg_parser.o $(OUT_DIR)/string_to_key.o 
 
 $(OUT_DIR)/$(OUT_FILE): $(OUT_DIR) $(OUT_DIR)/sounds $(OUT_OBJECTS) 
 	$(CC) $(OUT_OBJECTS) -o $(OUT_DIR)/$(OUT_FILE) -lm -latomic -lpthread $(OPTIMIZE)
@@ -27,6 +27,9 @@ $(OUT_DIR)/arg_parser.o: src/arg_parser.c
 
 $(OUT_DIR)/watch_key.o: src/watch_key.c
 	$(CC) src/watch_key.c -o $(OUT_DIR)/watch_key.o -c $(DEFINES) $(OPTIMIZE)
+
+$(OUT_DIR)/string_to_key.o: src/string_to_key.c
+	$(CC) src/string_to_key.c -o $(OUT_DIR)/string_to_key.o -c $(DEFINES) $(OPTIMIZE)
 
 $(OUT_DIR)/miniaudio.o: external/miniaudio.c
 	$(CC) external/miniaudio.c -o $(OUT_DIR)/miniaudio.o -lm -c $(OPTIMIZE)

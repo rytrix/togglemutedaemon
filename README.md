@@ -13,4 +13,4 @@ s - server/daemon; a(audio), p(push to talk)
 
 c - client; t(toggle mute), 0(unmute), 1(mute) q(exit)
 
-g - global push to talk (requires root)
+g - global push to talk (requires root); keybind(f12,f11,lalt)

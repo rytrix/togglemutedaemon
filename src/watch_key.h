@@ -1,3 +1,3 @@
 #pragma once
 
-void watcher();
+void watch_key(const char* key);

@@ -1,8 +1,7 @@
 #include "helpers.h"
 
-#include "globals.h"
-
 #include <libgen.h>
+#include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 

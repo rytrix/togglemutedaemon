@@ -1,3 +1,5 @@
+#pragma once
+
 #define SOCKET_PATH "/tmp/togglemutedaemon"
 #define BUFFER_SIZE 1
 

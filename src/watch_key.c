@@ -11,6 +11,7 @@
 
 #include "client.h"
 #include "debug.h"
+#include "string_to_key.h"
 
 struct DeviceResult {
     int fd;
@@ -19,7 +20,7 @@ struct DeviceResult {
 };
 typedef struct DeviceResult DeviceResult_t;
 
-int check_device_for_key(struct DeviceResult* result, int key)
+int check_device_for_key(DeviceResult_t* result, int key)
 {
 #define IS_BIT_SET(bit, array) ((array[(bit) / 8] & (1 << ((bit) % 8))) != 0)
 
@@ -86,7 +87,7 @@ int get_user_selection(int max_options) {
     }
 }
 
-void watch_key(int fd)
+void watch_key_internal(int fd, int key)
 {
     struct input_event ev;
 
@@ -99,7 +100,7 @@ void watch_key(int fd)
 
         if (ev.type == EV_KEY) {
             // printf("Detected key %d\n", ev.code);
-            if (ev.code == KEY_F12) {
+            if (ev.code == key) {
                 if (ev.value == 1) {
                     // Keydown
                     client('1');
@@ -113,12 +114,12 @@ void watch_key(int fd)
     }
 }
 
-void watcher()
+void watch_key(const char* key)
 {
     const char* device_dir = "/dev/input";
     DIR* dir = opendir(device_dir);
 
-    struct DeviceResult results[32] = { 0 };
+    DeviceResult_t results[32] = { 0 };
     int results_size = 0;
 
     struct dirent* entry;
@@ -143,5 +144,14 @@ void watcher()
         return;
     }
 
-    watch_key(results[selection].fd);
+    int key_value = -1;
+    if (key != NULL) {
+        key_value = string_to_key(key);
+    }
+
+    if (key_value == -1) {
+        key_value = KEY_F12;
+    }
+
+    watch_key_internal(results[selection].fd, key_value);
 }

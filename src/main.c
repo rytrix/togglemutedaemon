@@ -1,9 +1,10 @@
+#include <stdio.h>
+
 #include "arg_parser.h"
 #include "client.h"
 #include "debug.h"
-#include "globals.h"
-#include "watch_key.h"
 #include "server.h"
+#include "watch_key.h"
 
 int main(int argc, char** argv)
 {
@@ -24,7 +25,7 @@ int main(int argc, char** argv)
         }
         client(*args.message);
     } else if (args.global_ptt == ARG_PRESENT) {
-        watcher();
+        watch_key(args.message);
     } else {
         usage(argv[0]);
     }

@@ -7,7 +7,7 @@
 
 void usage(char* name)
 {
-    printf("Usage: %s\ns - server/daemon; a(audio), p(push to talk)\nc - client; t(toggle mute), 0(unmute), 1(mute) q(exit)\ng - global push to talk (requires root)\n", name);
+    printf("Usage: %s\ns - server/daemon; a(audio), p(push to talk)\nc - client; t(toggle mute), 0(unmute), 1(mute) q(exit)\ng - global push to talk (requires root); keybind(f12,f11,lalt)\n", name);
 }
 
 Args_t args_default()
@@ -34,6 +34,13 @@ Args_t parse_args(int argc, char** argv)
         }
         if (strcmp(argv[i], "g") == 0) {
             args.global_ptt = ARG_PRESENT;
+            if (i + 1 <= argc) {
+                if (args.message != NULL) {
+                    printf_debug("Warning: message \"%s\" already present, overwriting with \"%s\"\n", args.message, argv[i]);
+                }
+                args.message = argv[i + 1];
+                i++;
+            }
         }
         if (strcmp(argv[i], "p") == 0) {
             args.push_to_talk = ARG_PRESENT;
