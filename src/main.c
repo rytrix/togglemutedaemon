@@ -8,22 +8,22 @@
 
 int main(int argc, char** argv)
 {
-    Args_t args = parse_args(argc, argv);
+    args_t args = parse_args(argc, argv);
     if (args.server == ARG_PRESENT) {
-        int audio = 0;
         int ptt = 0;
-        if (args.audio == ARG_PRESENT) {
-            audio = 1;
-        }
+        int audio = 0;
         if (args.push_to_talk) {
             ptt = 1;
         }
-        server(ptt, audio);
+        if (args.audio == ARG_PRESENT) {
+            audio = 1;
+        }
+        return server(ptt, audio);
     } else if (args.client == ARG_PRESENT) {
         if (args.message == NULL) {
             usage(argv[0]);
         }
-        client(*args.message);
+        return client(*args.message);
     } else if (args.global_ptt == ARG_PRESENT) {
         watch_key(args.message);
     } else {

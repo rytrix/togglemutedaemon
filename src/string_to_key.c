@@ -6,13 +6,13 @@
 
 #include "debug.h"
 
-struct KeyString {
+struct key_string {
     char string[32];
     int key;
 };
-typedef struct KeyString KeyString_t;
+typedef struct key_string key_string_t;
 
-static struct KeyString key_strings[] = {
+static key_string_t key_strings[] = {
     { .string = "1", .key = KEY_1 },
     { .string = "2", .key = KEY_2 },
     { .string = "3", .key = KEY_3 },
@@ -110,7 +110,7 @@ static struct KeyString key_strings[] = {
 
 int string_to_key(const char* string)
 {
-    for (int i = 0; i < sizeof(key_strings)/sizeof(KeyString_t); i++) {
+    for (int i = 0; i < sizeof(key_strings)/sizeof(key_string_t); i++) {
         if (strcmp(string, key_strings[i].string) == 0) {
             printf_debug("Found key %s\n", string);
             return key_strings[i].key;

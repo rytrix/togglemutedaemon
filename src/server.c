@@ -17,23 +17,23 @@
 
 #include "../external/miniaudio.h"
 
-enum MicStatus {
+enum mic_status {
     STATUS_MUTED = 0,
     STATUS_UNMUTED = 1,
 };
-typedef enum MicStatus MicStatus_t;
+typedef enum mic_status mic_status_t;
 
-struct ServerContext {
-    MicStatus_t mic_status;
+struct server_context {
+    mic_status_t mic_status;
     atomic_size_t prev_ptt_ms;
     atomic_int ptt_worker_continue;
     pthread_mutex_t mutex;
 
     ma_engine engine;
 };
-typedef struct ServerContext ServerContext_t;
+typedef struct server_context server_context_t;
 
-void set_mic_status(ServerContext_t* context, MicStatus_t status, int playsound, char* sound_dir)
+void set_mic_status(server_context_t* context, mic_status_t status, int playsound, char* sound_dir)
 {
     context->mic_status = status;
 
@@ -69,12 +69,12 @@ void set_mic_status(ServerContext_t* context, MicStatus_t status, int playsound,
     }
 }
 
-void toggle_mic_status(ServerContext_t* context, int play_sound, char* sound_dir)
+void toggle_mic_status(server_context_t* context, int play_sound, char* sound_dir)
 {
     set_mic_status(context, !context->mic_status, play_sound, sound_dir);
 }
 
-MicStatus_t parse_mic_status()
+mic_status_t parse_mic_status()
 {
     int pipe_fd[2];
     if (pipe(pipe_fd) == -1) {
@@ -117,16 +117,16 @@ MicStatus_t parse_mic_status()
     }
 }
 
-struct PttArgs {
-    struct ServerContext* context;
+struct ptt_args {
+    server_context_t* context;
     int play_sound;
     char* sounds_dir;
 };
-typedef struct PttArgs PttArgs_t;
+typedef struct ptt_args ptt_args_t;
 
 void* ptt_tracker(void* pthread_args)
 {
-    PttArgs_t* args = (PttArgs_t*)pthread_args;
+    ptt_args_t* args = (ptt_args_t*)pthread_args;
     while (args->context->ptt_worker_continue) {
         sleep_ms(50);
         size_t current_time = get_time_ms();
@@ -150,7 +150,7 @@ int server(int ptt, int play_sound)
     strcpy(sounds_dir + path_len, sounds);
     printf_debug("SERVER: Sound path: \"%s\"\n", sounds_dir);
 
-    ServerContext_t context;
+    server_context_t context;
     context.mic_status = STATUS_MUTED;
     context.prev_ptt_ms = (size_t)-1;
     context.ptt_worker_continue = 1;
@@ -194,7 +194,7 @@ int server(int ptt, int play_sound)
     }
 
     pthread_t ptt_thread;
-    PttArgs_t ptt_args;
+    ptt_args_t ptt_args;
     if (ptt) {
         ptt_args.context = &context;
         ptt_args.play_sound = play_sound;

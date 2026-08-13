@@ -10,9 +10,9 @@ void usage(char* name)
     printf("Usage: %s\ns - server/daemon; a(audio), p(push to talk)\nc - client; t(toggle mute), 0(unmute), 1(mute) q(exit)\ng - global push to talk (requires root); keybind(f12,f11,lalt)\n", name);
 }
 
-Args_t args_default()
+args_t args_default()
 {
-    Args_t args;
+    args_t args;
     args.server = ARG_NOT_PRESENT;
     args.client = ARG_NOT_PRESENT;
     args.global_ptt = ARG_NOT_PRESENT;
@@ -22,9 +22,9 @@ Args_t args_default()
     return args;
 }
 
-Args_t parse_args(int argc, char** argv)
+args_t parse_args(int argc, char** argv)
 {
-    Args_t args = args_default();
+    args_t args = args_default();
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "s") == 0) {
             args.server = ARG_PRESENT;

@@ -13,14 +13,14 @@
 #include "debug.h"
 #include "string_to_key.h"
 
-struct DeviceResult {
+struct device_result {
     int fd;
     char file_path[256];
     char name[256];
 };
-typedef struct DeviceResult DeviceResult_t;
+typedef struct device_result device_result_t;
 
-int check_device_for_key(DeviceResult_t* result, int key)
+int check_device_for_key(device_result_t* result, int key)
 {
 #define IS_BIT_SET(bit, array) ((array[(bit) / 8] & (1 << ((bit) % 8))) != 0)
 
@@ -119,7 +119,7 @@ void watch_key(const char* key)
     const char* device_dir = "/dev/input";
     DIR* dir = opendir(device_dir);
 
-    DeviceResult_t results[32] = { 0 };
+    device_result_t results[32] = { 0 };
     int results_size = 0;
 
     struct dirent* entry;
