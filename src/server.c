@@ -155,14 +155,16 @@ int server(int ptt, int play_sound)
     context.prev_ptt_ms = (size_t)-1;
     context.ptt_worker_continue = 1;
 
+    if (play_sound) {
+        int audio_result = init_audio(&context.engine);
+        if (audio_result != 0) {
+            return audio_result;
+        }
+    }
+
     context.mic_status = parse_mic_status();
     if (ptt && context.mic_status == STATUS_MUTED) {
         set_mic_status(&context, 0, play_sound, sounds_dir);
-    }
-
-    int audio_result = init_audio(&context.engine);
-    if (audio_result != 0) {
-        return audio_result;
     }
 
     struct sockaddr_un server_addr;
@@ -266,6 +268,8 @@ cleanup:
         pthread_join(ptt_thread, NULL);
         pthread_mutex_destroy(&context.mutex);
     }
-    deinit_audio(&context.engine);
+    if (play_sound) {
+        deinit_audio(&context.engine);
+    }
     return 0;
 }
