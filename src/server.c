@@ -23,6 +23,7 @@ enum mic_status {
 };
 typedef enum mic_status mic_status_t;
 
+typedef struct server_context server_context_t;
 struct server_context {
     mic_status_t mic_status;
     atomic_size_t prev_ptt_ms;
@@ -31,7 +32,6 @@ struct server_context {
 
     ma_engine engine;
 };
-typedef struct server_context server_context_t;
 
 void set_mic_status(server_context_t* context, mic_status_t status, int playsound, char* sound_dir)
 {
@@ -117,12 +117,12 @@ mic_status_t parse_mic_status()
     }
 }
 
+typedef struct ptt_args ptt_args_t;
 struct ptt_args {
     server_context_t* context;
     int play_sound;
     char* sounds_dir;
 };
-typedef struct ptt_args ptt_args_t;
 
 void* ptt_tracker(void* pthread_args)
 {

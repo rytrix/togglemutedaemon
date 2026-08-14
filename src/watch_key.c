@@ -13,12 +13,12 @@
 #include "debug.h"
 #include "string_to_key.h"
 
+typedef struct device_result device_result_t;
 struct device_result {
     int fd;
     char file_path[256];
     char name[256];
 };
-typedef struct device_result device_result_t;
 
 int check_device_for_key(device_result_t* result, int key)
 {

@@ -6,11 +6,11 @@
 
 #include "debug.h"
 
+typedef struct key_string key_string_t;
 struct key_string {
     char string[32];
     int key;
 };
-typedef struct key_string key_string_t;
 
 static key_string_t key_strings[] = {
     { .string = "1", .key = KEY_1 },

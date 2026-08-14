@@ -6,6 +6,7 @@ enum arg_values {
 };
 typedef enum arg_values arg_values_t;
 
+typedef struct args args_t;
 struct args {
     enum arg_values server;
     enum arg_values client;
@@ -14,7 +15,6 @@ struct args {
     enum arg_values global_ptt;
     const char* message;
 };
-typedef struct args args_t;
 
 args_t args_default();
 args_t parse_args(int argc, char** argv);
