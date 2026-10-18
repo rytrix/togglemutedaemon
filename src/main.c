@@ -12,7 +12,7 @@ int main(int argc, char** argv)
     if (args.server == ARG_PRESENT) {
         int ptt = 0;
         int audio = 0;
-        if (args.push_to_talk) {
+        if (args.push_to_talk == ARG_PRESENT) {
             ptt = 1;
         }
         if (args.audio == ARG_PRESENT) {

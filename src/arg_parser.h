@@ -1,18 +1,17 @@
 #pragma once
 
-enum arg_values {
+typedef enum {
     ARG_NOT_PRESENT = 0,
     ARG_PRESENT = 1,
-};
-typedef enum arg_values arg_values_t;
+} arg_values_t;
 
 typedef struct args args_t;
 struct args {
-    enum arg_values server;
-    enum arg_values client;
-    enum arg_values audio;
-    enum arg_values push_to_talk;
-    enum arg_values global_ptt;
+    arg_values_t server;
+    arg_values_t client;
+    arg_values_t audio;
+    arg_values_t push_to_talk;
+    arg_values_t global_ptt;
     const char* message;
 };
 

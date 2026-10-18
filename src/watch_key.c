@@ -119,16 +119,26 @@ void watch_key(const char* key)
     const char* device_dir = "/dev/input";
     DIR* dir = opendir(device_dir);
 
-    device_result_t results[32] = { 0 };
+    int key_value = -1;
+    if (key != NULL) {
+        key_value = string_to_key(key);
+    }
+
+    if (key_value == -1) {
+        key_value = KEY_F12;
+    }
+
+#define RESULTS_ARRAY_SIZE 48
+    device_result_t results[RESULTS_ARRAY_SIZE] = { 0 };
     int results_size = 0;
 
     struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(dir)) != NULL && results_size < RESULTS_ARRAY_SIZE) {
         if (strncmp(entry->d_name, "event", 5) == 0) {
             snprintf(results[results_size].file_path, sizeof(results[results_size].file_path), "%s/%s", device_dir, entry->d_name);
 
             printf_debug("%s \n", results[results_size].file_path);
-            int result = check_device_for_key(&results[results_size], KEY_F12);
+            int result = check_device_for_key(&results[results_size], key_value);
             if (result >= 0) {
                 results_size++;
             }
@@ -142,15 +152,6 @@ void watch_key(const char* key)
     if (selection < 0) {
         printf("Invalid selection\n");
         return;
-    }
-
-    int key_value = -1;
-    if (key != NULL) {
-        key_value = string_to_key(key);
-    }
-
-    if (key_value == -1) {
-        key_value = KEY_F12;
     }
 
     watch_key_internal(results[selection].fd, key_value);
